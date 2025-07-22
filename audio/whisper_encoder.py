@@ -30,17 +30,13 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         # outputs = model(**inputs)
         # loss = outputs.loss
         # return (loss, outputs) if return_outputs else loss
+        cross_attn_head_mask = torch.zeros((12,12,), dtype=torch.float32, device="cuda:0")
+        outputs = model(**inputs, cross_attn_head_mask=cross_attn_head_mask, output_hidden_states=True)
+        text_embeds = outputs["decoder_hidden_states"][-1][:,-1,:].detach().cpu()
         labels = inputs.pop("labels")
         audio_embeds = model.model.encoder(**inputs)[0][:,-1,:]
-        predicted_ids = model.generate(**inputs)
-        transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)
-        inputs = self.processor(text=transcription)
-        # cross_attn_head_mask = torch.zeros((12,12,), dtype=torch.float32, device="cuda:0")
-        # outputs = model(**inputs, cross_attn_head_mask=cross_attn_head_mask, output_hidden_states=True)
-        outputs = model(**inputs, output_hidden_states=True)
-        text_embeds = outputs["decoder_hidden_states"][-1][:,-1,:].detach().cpu()
         from sklearn.cluster import KMeans
-        clustering = KMeans(n_clusters=5, random_state=0, n_init="auto").fit(text_embeds)
+        clustering = KMeans(n_clusters=10, random_state=0, n_init="auto").fit(text_embeds)
         labels = clustering.labels_
         min_samples = 3
         from collections import Counter
@@ -49,6 +45,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         from torchclustermetrics import silhouette
         loss = 1 - silhouette.score(audio_embeds, labels, True)
         if not satisfies_min_samples:
+            loss.detach()
             print("skip")
         return (loss, outputs) if return_outputs else loss
 
@@ -56,10 +53,10 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 common_voice = DatasetDict()
 
 common_voice["train"] = load_dataset(
-    "united-we-care/United-Syn-Med", split="train[:500]"
+    "united-we-care/United-Syn-Med", split="train"
 )
 common_voice["test"] = load_dataset(
-    "united-we-care/United-Syn-Med", split="test[:100]"
+    "united-we-care/United-Syn-Med", split="test"
 )
 
 path = "/home/icml02/.cache/huggingface/hub/datasets--united-we-care--United-Syn-Med/snapshots/54b992a26c1b2b00eeace87aea61c3596e2e0c88/data/audio"

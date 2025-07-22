@@ -105,10 +105,10 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 common_voice = DatasetDict()
 
 common_voice["train"] = load_dataset(
-    "united-we-care/United-Syn-Med", split="train[:4000]"
+    "united-we-care/United-Syn-Med", split="train"
 )
 common_voice["test"] = load_dataset(
-    "united-we-care/United-Syn-Med", split="test[:500]"
+    "united-we-care/United-Syn-Med", split="test"
 )
 
 path = "/home/icml02/.cache/huggingface/hub/datasets--united-we-care--United-Syn-Med/snapshots/54b992a26c1b2b00eeace87aea61c3596e2e0c88/data/audio"
