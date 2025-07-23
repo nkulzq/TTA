@@ -30,11 +30,17 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         # outputs = model(**inputs)
         # loss = outputs.loss
         # return (loss, outputs) if return_outputs else loss
+        labels = inputs.pop("labels")
+        audio_embeds = model.model.encoder(**inputs)[0][:,-1,:]
+        model.eval()
+        predicted_ids = model.generate(inputs["input_features"])
+        transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)
+        model.train()
+        labels = self.processor(text=transcription, padding=True, truncation=True, return_tensors="pt")["input_ids"].to("cuda")
+        inputs["labels"] = labels
         cross_attn_head_mask = torch.zeros((12,12,), dtype=torch.float32, device="cuda:0")
         outputs = model(**inputs, cross_attn_head_mask=cross_attn_head_mask, output_hidden_states=True)
         text_embeds = outputs["decoder_hidden_states"][-1][:,-1,:].detach().cpu()
-        labels = inputs.pop("labels")
-        audio_embeds = model.model.encoder(**inputs)[0][:,-1,:]
         from sklearn.cluster import KMeans
         clustering = KMeans(n_clusters=10, random_state=0, n_init="auto").fit(text_embeds)
         labels = clustering.labels_
