@@ -66,11 +66,8 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         criterion = simCLR()
         labels = inputs.pop("labels")
-        features = inputs["input_features"]
-        inputs["input_features"] = features[:,:80,:]
-        e_i = model.model.encoder(**inputs)[0][:,-1,:]
-        inputs["input_features"] = features[:,80:,:]
-        e_j = model.model.encoder(**inputs)[0][:,-1,:]
+        e_i = model.model.encoder(input_features=inputs["input_features_1"])[0][:,-1,:]
+        e_j = model.model.encoder(input_features=inputs["input_features_2"])[0][:,-1,:]
         loss = criterion(e_i, e_j)
         return loss
 
@@ -138,10 +135,24 @@ class DataCollatorSpeechSeq2SeqWithPadding:
     def __call__(
         self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
     ) -> Dict[str, torch.Tensor]:
-        input_features = [
-            {"input_features": feature["input_features"][0]} for feature in features
-        ]
-        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+        if len(features[0]["input_features"]) != 2:
+            input_features = [
+                {"input_features": feature["input_features"][0]} for feature in features
+            ]
+            batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+        else:
+            input_features_1 = [
+                {"input_features": feature["input_features"][0][0]} for feature in features
+            ]
+            input_features_2 = [
+                {"input_features": feature["input_features"][0][0]} for feature in features
+            ]
+            batch_1 = self.processor.feature_extractor.pad(input_features_1, return_tensors="pt")
+            batch_2 = self.processor.feature_extractor.pad(input_features_2, return_tensors="pt")
+            batch = {
+                "input_features_1":batch_1["input_features"],
+                "input_features_2":batch_2["input_features"],
+            }
 
         label_features = [{"input_ids": feature["labels"]} for feature in features]
         labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
