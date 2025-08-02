@@ -141,6 +141,16 @@ def prepare_dataset_test(example):
 common_voice["train"] = common_voice["train"].map(prepare_dataset_train, remove_columns=common_voice["train"].column_names)
 common_voice["test"]  = common_voice["test"].map(prepare_dataset_test,  remove_columns=common_voice["test"].column_names)
 
+max_input_length = 30.0
+
+def is_audio_in_length_range(length):
+    return length < max_input_length
+
+common_voice["train"] = common_voice["train"].filter(
+    is_audio_in_length_range,
+    input_columns=["input_length"],
+)
+
 @dataclass
 class DataCollatorSpeechSeq2SeqWithPadding:
     processor: Any
